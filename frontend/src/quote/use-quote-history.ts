@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef } from "react";
 import { quoteSteps } from "./workflow";
 import type { Step } from "./workflow";
 
@@ -39,7 +39,7 @@ export function useQuoteHistory(step: Step, visit: (target: Step) => Step) {
     return () => window.removeEventListener("popstate", pop);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!flow.current) return;
     const current = entryFrom(window.history.state);
     if (current?.flow === flow.current && current.step !== step) {
