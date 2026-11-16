@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: adaptive-quote
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:5432/adaptive_quote
+    username: quote
+    password: adaptive_quote_local
+    hikari:
+      maximum-pool-size: 5
+      connection-timeout: 3000
+  jdbc:
+    template:
+      query-timeout: 5s
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+server:
+  port: ${PORT:8080}
+quote:
+  public-origin: ${QUOTE_PUBLIC_ORIGIN:http://localhost:${server.port}}
+  session-secret: ${QUOTE_SESSION_SECRET:}
+  ai:
+    enabled: ${QUOTE_AI_ENABLED:false}
+    api-key: ${OPENAI_API_KEY:}
+  vpic:
+    enabled: ${QUOTE_VPIC_ENABLED:true}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

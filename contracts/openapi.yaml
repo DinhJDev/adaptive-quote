@@ -1,0 +1,437 @@
+openapi: 3.1.0
+info:
+  title: Adaptive Quote
+  version: 1.0.0
+  description: Vehicle matching against a small demo catalog, server-priced previews, and browser-owned quote receipts.
+paths:
+  /api/v1/catalog:
+    get:
+      operationId: getCatalog
+      responses:
+        '200':
+          description: Current catalog and available intake modes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Catalog' }
+  /api/v1/extractions:
+    post:
+      operationId: extractVehicle
+      description: Live mode requires the app origin and may fall back to matching the same input against the demo catalog.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExtractionRequest' }
+            example: { mode: catalog, text: "2020 VW GTI" }
+      responses:
+        '200':
+          description: Observed facts and catalog resolution
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Extraction' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /api/v1/quote-links:
+    post:
+      operationId: createQuoteLink
+      description: Create a seven-day snapshot from confirmed parts. Creation requires a quote session and the app origin.
+      security:
+        - browserSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [selection, parts]
+              properties:
+                selection: { $ref: '#/components/schemas/PreviewRequest' }
+                parts:
+                  type: array
+                  maxItems: 72
+                  items: { $ref: '#/components/schemas/Part' }
+      responses:
+        '201':
+          description: Shareable link at the configured public origin
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuoteLink' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /api/v1/quote-links/{id}:
+    get:
+      operationId: openQuoteLink
+      description: Anyone with the link can open the snapshot until it expires.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Saved Quote Ready summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuoteLinkSnapshot' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+  /api/v1/quotes/preview:
+    post:
+      operationId: previewQuote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PreviewRequest' }
+            example:
+              vehicleId: toyota-gr86-2022
+              modStatus: modified
+              modIds: [intake]
+              serviceId: tune
+              addOnIds: [log-review]
+      responses:
+        '200':
+          description: Eligible offers and price for the selected items
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Preview' }
+              example:
+                catalogVersion: demo-7
+                eligibleServices:
+                  - { id: assessment, label: Vehicle assessment, amountMinor: 9900 }
+                  - { id: tune, label: Stage 1 calibration tune, amountMinor: 39900 }
+                  - { id: stage-2, label: Stage 2 calibration tune, amountMinor: 52400 }
+                  - { id: stage-3, label: Stage 3 calibration tune, amountMinor: 64900 }
+                eligibleAddOns:
+                  - { id: log-review, label: Data log review, amountMinor: 4900 }
+                lineItems:
+                  - { id: tune, label: Stage 1 calibration tune, amountMinor: 39900 }
+                  - { id: log-review, label: Data log review, amountMinor: 4900 }
+                totalMinor: 44800
+                currency: USD
+                recommendedServiceId: tune
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /api/v1/quotes/{quoteId}:
+    parameters:
+      - name: quoteId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      operationId: saveQuote
+      description: Save one immutable quote. Reuse the same quoteId and selection to retry.
+      security:
+        - browserSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaveQuoteRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Receipt' }
+        '201': { $ref: '#/components/responses/Receipt' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '422': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+    get:
+      operationId: openQuote
+      security:
+        - browserSession: []
+      responses:
+        '200': { $ref: '#/components/responses/Receipt' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    browserSession:
+      type: apiKey
+      in: cookie
+      name: __Host-adaptive_quote
+      description: Local HTTP development uses adaptive_quote.
+  responses:
+    Problem:
+      description: Request could not be completed
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Receipt:
+      description: Immutable saved quote
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/QuoteReceipt' }
+  schemas:
+    Id:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9-]{0,39}$'
+    Vehicle:
+      type: object
+      additionalProperties: false
+      required: [id, label, make, model, year]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        label: { type: string }
+        make: { type: string }
+        model: { type: string }
+        year: { type: integer }
+        entered: { type: boolean, const: true }
+        referenceMatch: { type: string, enum: [nameplate, vpic_exact, unlisted, year_outside_range] }
+    VehicleDetails:
+      type: object
+      additionalProperties: false
+      required: [make, model, year]
+      properties:
+        make: { type: string, minLength: 1, maxLength: 32 }
+        model: { type: string, minLength: 1, maxLength: 48 }
+        year: { type: integer, minimum: 1886 }
+    Modification:
+      type: object
+      additionalProperties: false
+      required: [id, label, kind]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        label: { type: string }
+        kind: { type: string, enum: [performance, miscellaneous] }
+    Example:
+      type: object
+      additionalProperties: false
+      required: [id, label, description]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        label: { type: string }
+        description: { type: string }
+    Catalog:
+      type: object
+      additionalProperties: false
+      required: [catalogVersion, vehicles, modifications, examples, liveEnabled, makes, minVehicleYear, maxVehicleYear, vehicleReferenceVersion]
+      properties:
+        catalogVersion: { type: string }
+        vehicles:
+          type: array
+          items: { $ref: '#/components/schemas/Vehicle' }
+        modifications:
+          type: array
+          items: { $ref: '#/components/schemas/Modification' }
+        examples:
+          type: array
+          items: { $ref: '#/components/schemas/Example' }
+        liveEnabled: { type: boolean }
+        makes:
+          type: array
+          items: { type: string }
+        minVehicleYear: { type: integer }
+        maxVehicleYear: { type: integer }
+        vehicleReferenceVersion: { type: string }
+    ExtractionRequest:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [mode, scenarioId]
+          properties:
+            mode: { type: string, const: fixture }
+            scenarioId: { $ref: '#/components/schemas/Id' }
+        - type: object
+          additionalProperties: false
+          required: [mode, text]
+          properties:
+            mode: { type: string, enum: [catalog, live] }
+            text: { type: string, minLength: 1, maxLength: 500, pattern: '\S' }
+            scope: { type: string, const: modifications, description: Classify parts without resolving a vehicle. }
+        - type: object
+          additionalProperties: false
+          required: [mode, vehicle]
+          properties:
+            mode: { type: string, const: manual }
+            vehicle: { $ref: '#/components/schemas/VehicleDetails' }
+    Extraction:
+      type: object
+      additionalProperties: false
+      required: [source, schemaVersion, facts, match]
+      properties:
+        source: { type: string, enum: [fixture, catalog, live, manual] }
+        fallbackReason: { type: string, enum: [limited, unavailable, private_input] }
+        schemaVersion: { type: string }
+        facts:
+          type: object
+          additionalProperties: false
+          required: [modIds, stockMention]
+          properties:
+            modIds:
+              type: array
+              items: { $ref: '#/components/schemas/Id' }
+            stockMention: { type: boolean }
+            parts:
+              type: array
+              items: { $ref: '#/components/schemas/Part' }
+        match:
+          type: object
+          additionalProperties: false
+          required: [status, candidates]
+          properties:
+            status: { type: string, enum: [matched, ambiguous, incomplete, conflict, unsupported, unverified] }
+            candidates:
+              type: array
+              items: { $ref: '#/components/schemas/Vehicle' }
+            hint:
+              type: object
+              additionalProperties: false
+              required: [make, model]
+              properties:
+                make: { type: string }
+                model: { type: string }
+    Part:
+      type: object
+      additionalProperties: false
+      required: [id, label]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        label: { type: string, minLength: 1, maxLength: 500 }
+    QuoteLink:
+      type: object
+      additionalProperties: false
+      required: [url, expiresAt]
+      properties:
+        url: { type: string, format: uri }
+        expiresAt: { type: string, format: date-time }
+    QuoteLinkSnapshot:
+      type: object
+      additionalProperties: false
+      required: [vehicle, modStatus, modIds, parts, recommendation]
+      properties:
+        vehicle: { $ref: '#/components/schemas/Vehicle' }
+        modStatus: { $ref: '#/components/schemas/ModStatus' }
+        modIds:
+          type: array
+          items: { $ref: '#/components/schemas/Id' }
+        parts:
+          type: array
+          items: { $ref: '#/components/schemas/Part' }
+        recommendation: { type: [string, 'null'] }
+    ModStatus:
+      type: string
+      enum: [stock, modified, unsure]
+    PreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [vehicleId, modStatus, modIds, serviceId, addOnIds]
+      properties:
+        vehicleId: { $ref: '#/components/schemas/Id' }
+        vehicleDetails: { $ref: '#/components/schemas/VehicleDetails' }
+        modStatus: { $ref: '#/components/schemas/ModStatus' }
+        modIds:
+          type: array
+          maxItems: 6
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Id' }
+        serviceId:
+          anyOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        addOnIds:
+          type: array
+          maxItems: 1
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Id' }
+    Offer:
+      type: object
+      additionalProperties: false
+      required: [id, label, amountMinor]
+      properties:
+        id: { $ref: '#/components/schemas/Id' }
+        label: { type: string }
+        amountMinor: { type: integer, minimum: 0 }
+    Preview:
+      type: object
+      additionalProperties: false
+      required: [catalogVersion, eligibleServices, eligibleAddOns, lineItems, totalMinor, currency]
+      properties:
+        recommendedServiceId: { $ref: '#/components/schemas/Id' }
+        catalogVersion: { type: string }
+        eligibleServices:
+          type: array
+          items: { $ref: '#/components/schemas/Offer' }
+        eligibleAddOns:
+          type: array
+          items: { $ref: '#/components/schemas/Offer' }
+        lineItems:
+          type: array
+          items: { $ref: '#/components/schemas/Offer' }
+        totalMinor: { type: [integer, 'null'], minimum: 0 }
+        customReviewReason: { type: string, enum: [older_vehicle, complex_build, unverified_vehicle] }
+        currency: { type: string, enum: [USD] }
+    Problem:
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        code: { type: string }
+    SaveQuoteRequest:
+      type: object
+      additionalProperties: false
+      required: [catalogVersion, confirmed, selection]
+      properties:
+        catalogVersion: { $ref: '#/components/schemas/Id' }
+        confirmed: { type: boolean, const: true }
+        selection: { $ref: '#/components/schemas/PreviewRequest' }
+    QuoteReceipt:
+      type: object
+      additionalProperties: false
+      required: [quoteId, catalogVersion, selection, lineItems, totalMinor, currency, createdAt, expiresAt, checkoutExample]
+      properties:
+        quoteId: { type: string, format: uuid }
+        catalogVersion: { type: string }
+        selection: { $ref: '#/components/schemas/PreviewRequest' }
+        lineItems:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/Offer' }
+        totalMinor: { type: integer, minimum: 0 }
+        currency: { type: string, enum: [USD] }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        checkoutExample: { $ref: '#/components/schemas/CheckoutExample' }
+    CheckoutExample:
+      type: object
+      additionalProperties: false
+      required: [mode, line_items, success_url]
+      properties:
+        mode: { type: string, const: payment }
+        success_url: { type: string, format: uri }
+        line_items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [quantity, price_data]
+            properties:
+              quantity: { type: integer, const: 1 }
+              price_data:
+                type: object
+                additionalProperties: false
+                required: [currency, unit_amount, product_data]
+                properties:
+                  currency: { type: string, const: usd }
+                  unit_amount: { type: integer, minimum: 0 }
+                  product_data:
+                    type: object
+                    additionalProperties: false
+                    required: [name]
+                    properties:
+                      name: { type: string }

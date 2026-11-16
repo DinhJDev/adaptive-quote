@@ -1,0 +1,11 @@
+.git
+**/node_modules
+**/target
+**/.next
+**/api.generated.ts
+**/out
+**/test-results
+**/playwright-report
+**/.env
+**/.env.*
+**/*.log

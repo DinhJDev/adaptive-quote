@@ -1,0 +1,49 @@
+{
+  "name": "adaptive-quote-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22 <25"
+  },
+  "scripts": {
+    "generate:api": "openapi-typescript ../contracts/openapi.yaml -o src/quote/api.generated.ts",
+    "build": "npm run generate:api && next build --webpack",
+    "check": "npm run generate:api && eslint . && tsc --noEmit && vitest run",
+    "test:e2e": "npm run generate:api && playwright test"
+  },
+  "dependencies": {
+    "@fontsource-variable/instrument-sans": "5.3.0",
+    "@fontsource/barlow-semi-condensed": "5.3.0",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "cn": "^0.5.2",
+    "lucide-react": "1.73.0",
+    "next": "16.4.6",
+    "radix-ui": "^1.8.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "tailwind-merge": "3.7.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "@tailwindcss/postcss": "4.3.5",
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.6",
+    "openapi-typescript": "7.13.0",
+    "tailwindcss": "4.3.5",
+    "typescript": "5.9.3",
+    "vitest": "5.1.0",
+    "yaml": "2.9.1"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.8"
+    }
+  }
+}

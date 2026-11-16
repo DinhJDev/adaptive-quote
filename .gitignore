@@ -1,0 +1,28 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# Builds and dependencies
+node_modules/
+.next/
+out/
+dist/
+target/
+*.tsbuildinfo
+next-env.d.ts
+api.generated.ts
+
+# Test results and local tools
+coverage/
+playwright-report/
+test-results/
+.railway/
+.idea/
+.vscode/
+*.log
+*.dump
+.DS_Store
